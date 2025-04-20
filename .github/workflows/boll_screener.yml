@@ -32,7 +32,8 @@ jobs:
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
         git add results/boll_oversold_results.csv
-        git commit -m "📈 自动更新：BOLL 超卖选股结果 $(date +'%Y-%m-%d')"
-        git push
+        git commit -m "📈 自动更新：BOLL 超卖选股结果 $(date +'%Y-%m-%d')" || echo "无更新，跳过提交"
+        git push || echo "无更新，跳过推送"
+
 
 
