@@ -2,8 +2,8 @@ name: 每日BOLL超卖选股
 
 on:
   schedule:
-    - cron: "0 13 * * 1-5"  # 每周一到五13:00 UTC运行（美东时间09:00开盘前）
-  workflow_dispatch:
+    - cron: "0 13 * * 1-5"  # 每周一到五13:00 UTC运行（美东时间早上9点）
+  workflow_dispatch:        # 允许手动运行
 
 jobs:
   run-boll-screener:
@@ -29,3 +29,4 @@ jobs:
       with:
         name: BOLL超卖结果
         path: boll_oversold_results.csv
+
