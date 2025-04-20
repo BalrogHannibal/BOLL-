@@ -57,4 +57,6 @@ df.to_csv("results/boll_oversold_results.csv", index=False)
 
 # 控制台输出
 print(f"🎯 完成：共 {len(df)} 支股票跌破布林下轨")
+print(df.head())  # 查看前几行
+print(f"✅ 最终选中股票数：{len(df)}")
 
