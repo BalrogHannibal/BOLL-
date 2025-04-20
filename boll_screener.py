@@ -41,4 +41,6 @@ with ThreadPoolExecutor(max_workers=10) as executor:
 
 df = pd.DataFrame(results)
 df.to_csv("boll_oversold_results.csv", index=False)
+df.to_csv("results/boll_oversold_results.csv", index=False)
 print(f"🎯 完成：共 {len(df)} 支跌破布林下轨")
+
