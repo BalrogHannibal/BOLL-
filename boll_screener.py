@@ -8,11 +8,10 @@ import os
 # === 获取全美股代码 ===
 nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep="|")
 nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep="|")
-
 tickers = pd.concat([nasdaq['Symbol'].dropna(), nyse['ACT Symbol'].dropna()])
 tickers = [t for t in tickers if t.isalpha()]
 
-# === 指标函数 ===
+# === 指标计算函数 ===
 def compute_rsi(series, period=14):
     delta = series.diff()
     gain = delta.where(delta > 0, 0).rolling(period).mean()
@@ -33,7 +32,7 @@ def compute_indicators(data):
     data["Breakout"] = data["Close"] > data["Close"].rolling(20).max().shift(1)
     return data
 
-# === 卦象策略筛选函数 ===
+# === 策略筛选函数（含BOLL fallback） ===
 def check_guaxiang_strategy(ticker):
     try:
         data = yf.download(ticker, period="3mo", interval="1d", progress=False)
@@ -43,6 +42,25 @@ def check_guaxiang_strategy(ticker):
         last = data.iloc[-1]
         prev = data.iloc[-2]
 
+        # fallback: 若关键指标缺失 → 退回BOLL策略
+        fallback = (
+            pd.isna(last["Volume"]) or last["Volume"] == 0 or
+            pd.isna(last["OBV"]) or pd.isna(last["MACD"])
+        )
+        if fallback:
+            close = data["Close"]
+            basis = close.rolling(20).mean()
+            std = close.rolling(20).std()
+            lower = basis - 2 * std
+            if close.iloc[-1] < lower.iloc[-1]:
+                return {
+                    "Ticker": ticker,
+                    "Signal": "BOLL超卖Fallback",
+                    "Close": round(close.iloc[-1], 2),
+                    "Date": datetime.now().strftime("%Y-%m-%d")
+                }
+            return None
+
         macd_cross = last["MACD"] > last["MACD_signal"] and prev["MACD"] <= prev["MACD_signal"]
         macd_deadcross = last["MACD"] < last["MACD_signal"] and prev["MACD"] >= prev["MACD_signal"]
 
@@ -51,19 +69,18 @@ def check_guaxiang_strategy(ticker):
         obv_buy = last["OBV"] > last["OBV_MA"] and macd_cross
 
         buy_signal = zhen or li or obv_buy
-        sell_signal = macd_deadcross or last["RSI"] > 80 or last["OBV"] < last["OBV_MA"]
 
         if buy_signal:
             return {
                 "Ticker": ticker,
-                "Signal": "卦象买入",
+                "Signal": "六卦策略买入",
                 "Close": round(last["Close"], 2),
                 "Date": datetime.now().strftime("%Y-%m-%d")
             }
     except:
         return None
 
-# === 多线程执行全市场扫描 ===
+# === 多线程执行筛选 ===
 results = []
 with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [executor.submit(check_guaxiang_strategy, t) for t in tickers]
@@ -72,14 +89,15 @@ with ThreadPoolExecutor(max_workers=10) as executor:
         if r:
             results.append(r)
 
-# === 保存每日结果文件 ===
+# === 保存每日结果 ===
 df = pd.DataFrame(results)
 os.makedirs("results", exist_ok=True)
 filename = f"results/guaxiang_{datetime.now().strftime('%Y-%m-%d')}.csv"
 df.to_csv(filename, index=False)
 
-print(f"✅ 筛选完成，共 {len(df)} 支符合卦象买入条件")
+print(f"✅ 共 {len(df)} 支股票触发策略，结果保存在 {filename}")
 print(df.head())
+
 
 
 print(f"✅ 筛选结果已保存为 {filename}，共 {len(df)} 支股票")
