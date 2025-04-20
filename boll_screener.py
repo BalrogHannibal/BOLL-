@@ -4,20 +4,18 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 
-# Step 1: 获取全美股 ticker 列表（来自 NASDAQ 官方 FTP）
-nasdaq_url = "ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt"
-nyse_url = "ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt"
+# 加载全美股（NASDAQ + NYSE）
+nasdaq = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqlisted.txt", sep="|")
+nyse = pd.read_csv("ftp://ftp.nasdaqtrader.com/SymbolDirectory/otherlisted.txt", sep="|")
 
-nasdaq = pd.read_csv(nasdaq_url, sep="|")
-nyse = pd.read_csv(nyse_url, sep="|")
+tickers = pd.concat([
+    nasdaq['Symbol'].dropna(),
+    nyse['ACT Symbol'].dropna()
+])
+tickers = [t for t in tickers if t.isalpha()]  # 排除 ETF/权证
+# tickers = tickers[:500]  # 如需调试可先限制数量
 
-nasdaq_tickers = nasdaq['Symbol'].dropna()
-nyse_tickers = nyse['ACT Symbol'].dropna()
-tickers = pd.concat([nasdaq_tickers, nyse_tickers])
-tickers = [t for t in tickers if t.isalpha()]  # 过滤 ETF/权证等
-tickers = tickers[:200]  # 初次测试建议限制数量，可注释掉
-
-# Step 2: 定义筛选函数
+# 检查是否超卖（布林下轨）
 def check_boll_oversold(ticker):
     try:
         data = yf.download(ticker, period="3mo", interval="1d", progress=False)
@@ -37,7 +35,7 @@ def check_boll_oversold(ticker):
     except:
         return None
 
-# Step 3: 多线程并发执行
+# 多线程执行
 results = []
 with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [executor.submit(check_boll_oversold, t) for t in tickers]
@@ -46,17 +44,19 @@ with ThreadPoolExecutor(max_workers=10) as executor:
         if r:
             results.append(r)
 
-# Step 4: 结果保存到 GitHub 仓库
+# 保存或打印
 df = pd.DataFrame(results)
+from datetime import datetime
+import os
 
-# 创建文件夹（自动创建）
-os.makedirs("results", exist_ok=True)
+os.makedirs("results", exist_ok=True)  # 自动创建目录
 
-# 保存到结果文件夹
-df.to_csv("results/boll_oversold_results.csv", index=False)
+# 用日期命名文件，例如 boll_2025-04-20.csv
+date_str = datetime.now().strftime("%Y-%m-%d")
+filename = f"results/boll_{date_str}.csv"
+df.to_csv(filename, index=False)
 
-# 控制台输出
-print(f"🎯 完成：共 {len(df)} 支股票跌破布林下轨")
-print(df.head())  # 查看前几行
-print(f"✅ 最终选中股票数：{len(df)}")
+print(f"✅ 筛选结果已保存为 {filename}，共 {len(df)} 支股票")
 
+print(df)
+print(f"✅ 共检测 {len(tickers)} 支股票，符合条件的有 {len(df)} 支")
