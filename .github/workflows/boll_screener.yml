@@ -2,8 +2,11 @@ name: 每日BOLL超卖选股
 
 on:
   schedule:
-    - cron: "0 13 * * 1-5"        # 每周一至周五 13:00 UTC（美东早9点）
-  workflow_dispatch:              # 允许手动触发运行
+    - cron: "0 13 * * 1-5"        # 每周一至周五 13:00 UTC（美东时间早9点）
+  workflow_dispatch:              # 支持手动触发
+
+permissions:
+  contents: write                 # 允许 workflow 向仓库写入文件
 
 jobs:
   run-boll-screener:
@@ -21,12 +24,15 @@ jobs:
     - name: 安装依赖
       run: pip install -r requirements.txt
 
-    - name: 执行BOLL策略脚本
+    - name: 执行 BOLL 选股脚本
       run: python boll_screener.py
 
-    - name: 上传筛选结果
-      uses: actions/upload-artifact@v2
-      with:
-        name: BOLL超卖结果
-        path: boll_oversold_results.csv
+    - name: 提交筛选结果到仓库
+      run: |
+        git config --global user.name "github-actions"
+        git config --global user.email "github-actions@github.com"
+        git add results/boll_oversold_results.csv
+        git commit -m "📈 自动更新：BOLL 超卖选股结果 $(date +'%Y-%m-%d')"
+        git push
+
 
