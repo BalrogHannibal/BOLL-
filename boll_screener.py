@@ -108,3 +108,4 @@ filename = f"results/boll_oversold_{TARGET_DATE}.csv"
 pd.DataFrame(results).to_csv(filename, index=False)
 
 print(f"\n✅ 完成！共找到 {len(results)} 支符合BOLL超賣的股票。結果保存於 {filename}")
+
